@@ -23,7 +23,7 @@
             height: 100vh; overflow: hidden;
         }
 
-        /* --- HIVE INTRO --- */
+        /* --- CLEAN HIVE INTRO --- */
         #intro {
             position: fixed; inset: 0;
             background: black; z-index: 9999;
@@ -58,7 +58,6 @@
 
         @keyframes fadeIn { to { opacity: 1; } }
 
-        /* Sidebar */
         #sidebar {
             width: 320px; background: var(--panel);
             border-right: 2px solid var(--yellow);
@@ -88,7 +87,6 @@
         .status.off { color: var(--offline); }
         .nest-item.active .status { color: #000; }
 
-        /* Content Area */
         #main {
             flex-grow: 1; display: flex; flex-direction: column;
             padding: 40px; background: radial-gradient(circle at center, #1a1a1a, #050505);
@@ -106,7 +104,7 @@
         .ai { color: #fff; border-left: 2px solid #444; padding-left: 15px; }
         .ai.core { border-left-color: var(--yellow); }
 
-        .input-bar { display: flex; gap: 15px; }
+        .input-bar { display: flex; gap: 15px; align-items: center; }
         input {
             flex-grow: 1; background: #000; border: 1px solid var(--yellow);
             color: white; padding: 18px; border-radius: 4px; outline: none;
@@ -115,11 +113,18 @@
 
         button {
             background: var(--yellow); color: #000; font-weight: 900;
-            border: none; padding: 0 40px; border-radius: 4px; cursor: pointer;
+            border: none; padding: 18px 40px; border-radius: 4px; cursor: pointer;
             text-transform: uppercase; transition: 0.2s;
         }
 
         button:hover { background: #fff; }
+
+        .tts-control {
+            margin-top: 10px; font-size: 0.7rem; color: #666;
+            display: flex; align-items: center; gap: 8px;
+            cursor: pointer;
+        }
+        .tts-control.active { color: var(--yellow); }
 
         .gen-img { max-width: 100%; border-radius: 4px; border: 1px solid var(--yellow); margin-top: 15px; }
     </style>
@@ -128,13 +133,16 @@
 
     <div id="intro">
         <div class="hornet-logo">HORNET'S NEST</div>
-        <div class="tagline">Hive OS v1.0.4 - Initializing Core</div>
+        <div class="tagline">Hive OS v1.0.6 - Core Initialized</div>
     </div>
 
     <div id="app">
         <div id="sidebar">
             <div class="side-head">
                 <h2 style="margin:0; color:var(--yellow); font-size: 1.4rem; letter-spacing: 2px;">THE NESTS</h2>
+                <div id="tts-toggle" class="tts-control active" onclick="toggleVoice()">
+                    <span id="tts-icon">🔊</span> VOICE PROTOCOL: <span id="tts-status">ENABLED</span>
+                </div>
             </div>
             <div id="nest-list"></div>
         </div>
@@ -172,9 +180,34 @@
         ];
 
         let activeNest = null;
-        const list = document.getElementById('nest-list');
+        let voiceEnabled = true;
+
+        function toggleVoice() {
+            voiceEnabled = !voiceEnabled;
+            const statusText = document.getElementById('tts-status');
+            const control = document.getElementById('tts-toggle');
+            if (voiceEnabled) {
+                statusText.innerText = "ENABLED";
+                control.classList.add('active');
+                speak("Voice protocol re-established.");
+            } else {
+                statusText.innerText = "DISABLED";
+                control.classList.remove('active');
+                window.speechSynthesis.cancel();
+            }
+        }
+
+        function speak(text) {
+            if (!voiceEnabled) return;
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.pitch = 0.85;
+            utterance.rate = 1.0;
+            window.speechSynthesis.speak(utterance);
+        }
 
         function init() {
+            const list = document.getElementById('nest-list');
             nests.forEach((nest, i) => {
                 const item = document.createElement('div');
                 item.className = `nest-item ${nest.type === 'Core' ? 'core-ai' : ''}`;
@@ -189,8 +222,6 @@
                 `;
                 item.onclick = () => selectNest(nest, item);
                 list.appendChild(item);
-                
-                // Set Hive Nest AI as the default first view
                 if (i === 0) selectNest(nest, item);
             });
         }
@@ -200,13 +231,14 @@
             element.classList.add('active');
             activeNest = nest;
             document.getElementById('nest-title').innerText = nest.name;
-            document.getElementById('nest-type').innerText = `Protocol: ${nest.type} | Model Authority: ${nest.model.toUpperCase()}`;
+            document.getElementById('nest-type').innerText = `Protocol: ${nest.type} | Model: ${nest.model.toUpperCase()}`;
             
             const introMsg = nest.type === 'Core' 
-                ? `<strong>[HIVE NEST CORE]:</strong> System initialized. Welcome to the Hornet's Nest. I am your central authority AI. All other nests are under my observation. How shall we proceed?`
-                : `<strong>[${nest.name.toUpperCase()}]:</strong> Awaiting instructions.`;
+                ? `System initialized. I am Hive Nest AI. All sub-modules are ready for deployment.`
+                : `Awaiting instructions.`;
             
-            document.getElementById('chat-window').innerHTML = `<div class="msg ai ${nest.type === 'Core' ? 'core' : ''}">${introMsg}</div>`;
+            document.getElementById('chat-window').innerHTML = `<div class="msg ai ${nest.type === 'Core' ? 'core' : ''}"><strong>[${nest.name.toUpperCase()}]:</strong> ${introMsg}</div>`;
+            if(nest.type === 'Core') speak("Hive protocol initialized. Commander, standing by.");
         }
 
         async function sendMessage() {
@@ -222,28 +254,29 @@
 
             if (activeNest.type === "Image") {
                 const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(text)}?model=${activeNest.model}&width=640&height=480&seed=${Math.floor(Math.random()*1000)}`;
-                chat.innerHTML += `<div class="msg ai"><strong>${activeNest.name}:</strong> Processing visual data...<br><img src="${imgUrl}" class="gen-img"></div>`;
+                chat.innerHTML += `<div class="msg ai"><strong>${activeNest.name}:</strong> Rendering...<br><img src="${imgUrl}" class="gen-img"></div>`;
+                speak("Image generation sequence initiated.");
             } else {
                 let systemPrompt = "";
                 if (activeNest.type === "Core") {
-                    systemPrompt = "You are Hive Nest AI, the central authority of the website 'The Hornet's Nest'. You are sharp, loyal to the user (the Commander), and slightly witty. You know you are the 'Core Nest' and that there are 14 other specialized nests on this site. Your personality is tactical and protective. ";
+                    systemPrompt = "You are Hive Nest AI, the central authority of 'The Hornet's Nest'. Sharp, tactical, and loyal to the Commander.";
                 }
 
-                chat.innerHTML += `<div class="msg ai" id="typing"><strong>${activeNest.name}:</strong> Analyzing...</div>`;
+                chat.innerHTML += `<div class="msg ai" id="typing"><strong>${activeNest.name}:</strong> Processing...</div>`;
                 
                 try {
                     const response = await fetch(`https://text.pollinations.ai/${encodeURIComponent(systemPrompt + text)}?model=${activeNest.model}`);
                     const data = await response.text();
                     document.getElementById('typing').remove();
                     chat.innerHTML += `<div class="msg ai ${activeNest.type === 'Core' ? 'core' : ''}"><strong>${activeNest.name}:</strong> ${data}</div>`;
+                    speak(data);
                 } catch (e) {
-                    document.getElementById('typing').innerText = `[CRITICAL CONNECTION ERROR]`;
+                    document.getElementById('typing').innerText = `[CONNECTION ERROR]`;
                 }
             }
             chat.scrollTop = chat.scrollHeight;
         }
 
-        // Enter key support
         document.getElementById('user-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') sendMessage();
         });
